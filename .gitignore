@@ -1,0 +1,40 @@
+# Environment files - NEVER commit these
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Angular build output
+dist/
+.angular/
+
+# Node modules
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build artifacts
+*.tgz
+
+# Secrets and tokens (never commit)
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
