@@ -1,5 +1,5 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8000', // Local backend for dev
+  apiUrl: 'https://gev-ehs.onrender.com',
   authEnabled: false
 };

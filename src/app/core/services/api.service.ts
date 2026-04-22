@@ -1,6 +1,4 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 export interface PredictionResponse {
@@ -35,28 +33,21 @@ export interface SiteResult {
   concern_trend_mom: number;
 }
 
-export interface HealthResponse {
-  status: 'ok' | 'error';
-  cluster_id?: string;
-  detail?: string;
-}
-
 @Injectable({
   providedIn: 'root'
 })
 export class ApiService {
   private baseUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
-
-  async checkHealth(): Promise<HealthResponse> {
+  async checkHealth(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/api/health`, {
         signal: AbortSignal.timeout(5000)
       });
-      return await response.json();
+      const data = await response.json();
+      return data.status === 'ok';
     } catch {
-      return { status: 'error', detail: 'Backend not reachable' };
+      return false;
     }
   }
 
@@ -94,46 +85,20 @@ export class ApiService {
     return await response.json();
   }
 
-  async runPrediction(file: File | null, csvContent?: string): Promise<PredictionResponse | null> {
-    // Try API first
-    const apiAvailable = await this.checkApiAvailable();
-
-    if (apiAvailable && file) {
-      try {
-        // Try Databricks endpoint first
-        return await this.predict(file);
-      } catch (error) {
-        console.log('Databricks endpoint failed, trying local:', error);
-        // Fall back to local endpoint
-        try {
-          return await this.predictLocal(file);
-        } catch (localError) {
-          console.error('Local endpoint also failed:', localError);
-          return null;
-        }
-      }
-    }
-
-    // If no file but CSV content exists, create a blob
-    if (csvContent) {
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const tempFile = new File([blob], 'upload.csv');
-      try {
-        return await this.predictLocal(tempFile);
-      } catch {
-        return null;
-      }
-    }
-
-    return null;
-  }
-
-  private async checkApiAvailable(): Promise<boolean> {
+  async runPrediction(file: File): Promise<PredictionResponse | null> {
+    // Try Databricks endpoint first
     try {
-      const health = await this.checkHealth();
-      return health.status === 'ok';
-    } catch {
-      return false;
+      return await this.predict(file);
+    } catch (error) {
+      console.log('Databricks endpoint failed:', error);
+    }
+
+    // Fall back to local inference endpoint
+    try {
+      return await this.predictLocal(file);
+    } catch (error) {
+      console.error('Local endpoint also failed:', error);
+      return null;
     }
   }
 

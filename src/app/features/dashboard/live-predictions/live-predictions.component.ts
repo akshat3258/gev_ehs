@@ -387,22 +387,34 @@ export class LivePredictionsComponent {
     await this.delay(400);
 
     // Try API first, fall back to local inference
-    const apiAvailable = await this.checkApiAvailable();
-    this.usingApi = apiAvailable;
+    this.usingApi = await this.checkApiAvailable();
 
-    if (apiAvailable && this.selectedFile) {
+    if (this.usingApi && this.selectedFile) {
       try {
+        // Try Databricks endpoint
         const apiResult = await this.apiService.predict(this.selectedFile);
         this.processApiResult(apiResult);
         this.currentStep = 4;
         return;
       } catch (error) {
-        console.log('API call failed, using local inference:', error);
+        console.log('Databricks endpoint failed, trying local inference:', error);
         this.usingApi = false;
       }
     }
 
-    // Fall back to local inference
+    // Fall back to local inference via backend
+    if (this.selectedFile) {
+      try {
+        const localResult = await this.apiService.predictLocal(this.selectedFile);
+        this.processApiResult(localResult);
+        this.currentStep = 4;
+        return;
+      } catch (error) {
+        console.log('Backend local endpoint also failed, using client-side inference:', error);
+      }
+    }
+
+    // Last resort: client-side local inference
     const localResults = this.localInference.runInference(this.parsedData);
     this.processLocalResult(localResults);
     this.currentStep = 4;
@@ -410,8 +422,10 @@ export class LivePredictionsComponent {
 
   private async checkApiAvailable(): Promise<boolean> {
     try {
-      const health = await this.apiService.checkHealth();
-      return health.status === 'ok';
+      const response = await fetch(this.apiService.getBackendUrl() + '/api/health', {
+        signal: AbortSignal.timeout(5000)
+      });
+      return response.ok;
     } catch {
       return false;
     }
