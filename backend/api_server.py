@@ -162,22 +162,17 @@ def get_cluster_id(client):
 
 
 # ── Serve the HTML ────────────────────────────────────────────────
-STATIC_DIR = Path(__file__).parent
+# Backend-only - Angular app is hosted on Netlify
 
 @app.get("/")
-async def serve_html():
-    return FileResponse(STATIC_DIR / "gev_ehs_value_story_v2.html")
+async def root():
+    return {"message": "GEV EHS Prediction API - Backend running on Render. Angular app is on Netlify."}
 
 
 # ── Health check ──────────────────────────────────────────────────
 @app.get("/api/health")
 async def health():
-    try:
-        client = get_client()
-        cluster_id = get_cluster_id(client)
-        return {"status": "ok", "cluster_id": cluster_id}
-    except Exception as e:
-        return {"status": "error", "detail": str(e)}
+    return {"status": "ok", "message": "Backend is running. Databricks connection will be tested on prediction."}
 
 
 # ── Upload & Run Pipeline ────────────────────────────────────────
