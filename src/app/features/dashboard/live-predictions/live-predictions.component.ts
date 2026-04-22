@@ -82,6 +82,9 @@ Chart.register(...registerables);
               </tbody>
             </table>
           </div>
+          <div *ngIf="pipelineError" style="background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;margin-bottom:12px;font-size:12px;color:#856404">
+            ⚠️ {{ pipelineError }}
+          </div>
           <div style="text-align:center">
             <button class="run-btn" id="runPipelineBtn" (click)="runPipeline()">▶ Run Prediction Pipeline</button>
           </div>
@@ -240,6 +243,7 @@ export class LivePredictionsComponent {
   currentStep = 1;
   isDragOver = false;
   uploadStatus = '';
+  pipelineError = '';
   parsedData: ConcernRecord[] = [];
   selectedFile: File | null = null;
   siteResults: SiteRiskResult[] = [];
@@ -402,7 +406,9 @@ export class LivePredictionsComponent {
         this.currentStep = 4;
         return;
       } catch (error) {
-        console.log('Databricks endpoint failed:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.log('Databricks endpoint failed:', msg);
+        this.pipelineError = `Databricks unavailable: ${msg}. Trying local inference...`;
         this.usingApi = false;
       }
     }
@@ -417,12 +423,15 @@ export class LivePredictionsComponent {
         this.currentStep = 4;
         return;
       } catch (error) {
-        console.log('Backend local endpoint also failed:', error);
+        const msg = error instanceof Error ? error.message : String(error);
+        console.log('Backend local endpoint also failed:', msg);
+        this.pipelineError = `Backend local inference failed: ${msg}. Using client-side demo...`;
       }
     }
 
     // Last resort: client-side local inference
     console.log('Using client-side local inference (demo data)');
+    this.pipelineError = 'Using client-side demo data (no backend available)';
     const localResults = this.localInference.runInference(this.parsedData);
     this.processLocalResult(localResults);
     this.currentStep = 4;
