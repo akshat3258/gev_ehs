@@ -397,7 +397,7 @@ def find_sql_warehouse(client):
 
 # ── Fallback: lightweight predict without Databricks ──────────────
 @app.post("/api/predict-local")
-async def predict_local(file: UploadFile = File(...), user=Depends(validate_azure_token)):
+async def predict_local(file: UploadFile = File(...)):
     """
     Local fallback prediction — uses the same logic as client-side JS
     but runs server-side. Use this when Databricks is unavailable.
