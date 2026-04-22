@@ -72,17 +72,29 @@ export class ApiService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${this.baseUrl}/api/predict-local`, {
-      method: 'POST',
-      body: formData
-    });
+    console.log('predictLocal: Starting request to', `${this.baseUrl}/api/predict-local`);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Local prediction failed: ${error}`);
+    try {
+      const response = await fetch(`${this.baseUrl}/api/predict-local`, {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log('predictLocal: Response status:', response.status);
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.log('predictLocal: Error response:', error);
+        throw new Error(`Local prediction failed: ${error}`);
+      }
+
+      const data = await response.json();
+      console.log('predictLocal: Success, got', data.sites_scored, 'sites');
+      return data;
+    } catch (err) {
+      console.log('predictLocal: Exception:', err);
+      throw err;
     }
-
-    return await response.json();
   }
 
   async runPrediction(file: File): Promise<PredictionResponse | null> {
