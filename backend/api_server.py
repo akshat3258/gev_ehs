@@ -52,18 +52,34 @@ async def debug():
 
 @app.post("/api/predict-local")
 async def predict_local(file: UploadFile = File(...)):
-    content = await file.read()
+    try:
+        content = await file.read()
+        logger.info(f"Received file: {file.filename}, size: {len(content)} bytes")
+    except Exception as e:
+        logger.error(f"Failed to read file: {e}")
+        raise HTTPException(400, f"Failed to read file: {e}")
+
     try:
         df = pd.read_csv(io.BytesIO(content))
     except Exception as e:
+        logger.error(f"Failed to parse CSV: {e}")
         raise HTTPException(400, f"Could not parse CSV: {e}")
+
+    logger.info(f"Parsed {len(df)} rows, columns: {list(df.columns)}")
 
     required_cols = ["incident_task_desc", "location_nme"]
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
+        logger.error(f"Missing columns: {missing}")
         raise HTTPException(400, f"Missing required columns: {missing}")
 
-    results = run_local_inference(df)
+    try:
+        results = run_local_inference(df)
+        logger.info(f"Inference complete: {len(results['sites'])} sites scored")
+    except Exception as e:
+        logger.error(f"Inference failed: {e}")
+        raise HTTPException(500, f"Inference failed: {e}")
+
     return JSONResponse(content={
         "status": "success",
         "upload_id": "local",
