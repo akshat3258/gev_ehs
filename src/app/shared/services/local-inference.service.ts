@@ -1,51 +1,51 @@
 import { Injectable } from '@angular/core';
 
 export const RISK_THEMES = [
-    'Safety Culture',
-    'Hazard Communication',
-    'Personal Protective Equipment',
-    'Incident Reporting',
-    'Inspection & Monitoring',
-    'Leadership Engagement',
-    'Contractor Management',
-    'Chemical Management',
-    'Ergonomics',
-    'Fire Safety',
-    'Environmental',
-    'Machine Guarding',
-    'Fall Protection',
-    'Process Safety',
-    'Training Competency',
-    'Health & Wellness',
-    'Supply Chain Safety',
-    'Audit & Compliance',
-    'Site Readiness',
-    'Asset Maintenance',
-    'System Resilience'
+    'Excavation & Trench Work',
+    'Vehicle & Mobile Equipment',
+    'Suspended Platforms',
+    'Machine & Power Tools',
+    'Lifting & Rigging',
+    'Fall from Height',
+    'Lockout/Tagout Violations',
+    'Chemical & Hazmat',
+    'Hot Work & Welding',
+    'Sharp Objects & Cutting',
+    'Dropped Objects',
+    'Confined Spaces',
+    'Environmental Spills',
+    'Caught-in / Caught-between',
+    'Electrical Hazards',
+    'Struck-by Hazards',
+    'Slips, Trips & Falls',
+    'Forklift & Powered Equipment',
+    'Contractor Safety',
+    'Scaffolding & Platforms',
+    'Crane & Overhead Lifting'
 ] as const;
 
 export const THEME_KEYWORDS: Record<string, RegExp> = {
-    'Safety Culture': /culture|attitude|mindset|engagement|ownership|empowerment/i,
-    'Hazard Communication': /hazard|label|sds|chemical|symbol|warning|communication/i,
-    'Personal Protective Equipment': /ppe|helmet|glove|glasses|respirator|hard hat|safety vest/i,
-    'Incident Reporting': /report|incident|near miss|accident|injury|investigation/i,
-    'Inspection & Monitoring': /inspection|audit|observation|assessment|review|monitoring/i,
-    'Leadership Engagement': /leadership|supervisor|manager|commitment|accountability/i,
-    'Contractor Management': /contractor|vendor|third party|subcontractor|outsource/i,
-    'Chemical Management': /chemical|substance|hazardous|material|toxic|chemical handling/i,
-    'Ergonomics': /ergonomic|posture|repetitive|strain|lifting|back|joint/i,
-    'Fire Safety': /fire|burn|combustible|ignition|flame|emergency evacuation/i,
-    'Environmental': /environmental|emission|waste|water|contamination|pollution/i,
-    'Machine Guarding': /machine|guarding|lockout|tagout|loto|equipment safety/i,
-    'Fall Protection': /fall|height|scaffold|ladder|harness|fall arrest/i,
-    'Process Safety': /process|critical|safety system|failure|risk assessment/i,
-    'Training Competency': /training|competency|certification|qualification|skill/i,
-    'Health & Wellness': /health|wellness|disease|illness|mental|occupational illness/i,
-    'Supply Chain Safety': /supplier|supply chain|sourcing|procurement|vendor management/i,
-    'Audit & Compliance': /audit|compliance|regulation|law|regulatory|standard/i,
-    'Site Readiness': /readiness|preparation|planning|procedure|protocol/i,
-    'Asset Maintenance': /maintenance|preventive|predictive|repair|upkeep/i,
-    'System Resilience': /resilience|redundancy|backup|contingency|continuity/i
+    'Excavation & Trench Work': /excavat|trench|dig|soil|shoring|cave.?in|backfill/i,
+    'Vehicle & Mobile Equipment': /vehicle|truck|driver|mobile equipment|backing|seatbelt|speed|transport/i,
+    'Suspended Platforms': /suspended platform|swing stage|bosun|man.?basket|aerial lift/i,
+    'Machine & Power Tools': /machine|power tool|drill|grinder|saw blade|guard|rotating|pinch point/i,
+    'Lifting & Rigging': /lift|rigging|sling|shackle|hoist|crane|load|capacity|overload/i,
+    'Fall from Height': /fall from|height|roof|ladder|edge|guardrail|harness|lanyard|anchor|tie.?off/i,
+    'Lockout/Tagout Violations': /lockout|tagout|loto|energiz|de.?energi|isolation|stored energy/i,
+    'Chemical & Hazmat': /chemical|hazmat|hazardous material|sds|msds|toxic|corrosive|spill.*chem/i,
+    'Hot Work & Welding': /hot work|weld|cutting torch|burn|fire watch|spark|flash|slag/i,
+    'Sharp Objects & Cutting': /sharp|cut|lacerat|blade|knife|puncture|needle|barb|edge.*sharp/i,
+    'Dropped Objects': /drop.*object|falling object|overhead|tool.*drop|unsecured.*tool|toe board/i,
+    'Confined Spaces': /confined space|permit.?required|atmosphere|ventilat|entry|monitor.*gas|oxygen/i,
+    'Environmental Spills': /spill|leak|containment|discharge|stormwater|waste|oil.*ground|berm/i,
+    'Caught-in / Caught-between': /caught.?in|caught.?between|crush|pinch|nip point|entangle|compress/i,
+    'Electrical Hazards': /electri|shock|arc flash|live wire|exposed.*wire|panel|energized|gfci|ground fault/i,
+    'Struck-by Hazards': /struck.?by|hit by|impact|flying|projectile|debris|swing|overhead.*load/i,
+    'Slips, Trips & Falls': /slip|trip|fall(?!.*height)|wet|ice|uneven|housekeep|clutter|cable.*floor/i,
+    'Forklift & Powered Equipment': /forklift|pallet jack|powered industrial|pit|load.*fork|pedestrian.*fork/i,
+    'Contractor Safety': /contractor|sub.?contract|visitor|orient|induct|badge|permit.*work|jsa/i,
+    'Scaffolding & Platforms': /scaffold|platform|plank|toe.?board|access|erect.*scaffold|inspect.*scaffold/i,
+    'Crane & Overhead Lifting': /crane|overhead|boom|jib|rigging.*crane|load chart|swing radius|outrigger/i
 };
 
 export interface ConcernRecord {
@@ -143,6 +143,9 @@ export class LocalInferenceService {
         if (site.stopworkRate === 0 && site.concernCount! > 0) {
             explanations.push({ text: "Zero stop-work actions — workers may not feel empowered to halt unsafe work", risk: true });
         }
+        if (site.trendMoM! < -0.3) {
+            explanations.push({ text: `Concern volume dropped ${Math.abs(Math.round(site.trendMoM! * 100))}% from prior period`, risk: true });
+        }
         if (site.themeCoverage! >= 10) {
             explanations.push({ text: `${site.themeCoverage} risk themes actively monitored — broad safety awareness`, risk: false });
         }
@@ -188,11 +191,8 @@ export class LocalInferenceService {
     }
 
     runInference(parsedData: ConcernRecord[]): PredictionResults {
-        const themesKey = 'incident_task_desc';
-        const locationKey = 'location_nme';
-        
         parsedData.forEach(row => {
-            (row as any)._themes = this.classifyThemes(row[themesKey] || '');
+            (row as any)._themes = this.classifyThemes(row.incident_task_desc || '');
         });
 
         const siteMap: Record<string, {
@@ -205,7 +205,7 @@ export class LocalInferenceService {
         }> = {};
 
         parsedData.forEach(row => {
-            const site = row[locationKey] || 'Unknown';
+            const site = row.location_nme || 'Unknown';
             if (!siteMap[site]) {
                 siteMap[site] = {
                     name: site,
