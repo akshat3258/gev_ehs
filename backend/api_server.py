@@ -46,7 +46,6 @@ async def debug():
     return {
         "backend": "running",
         "themes_count": len(THEMES),
-        "theme_keywords_count": len(THEME_KEYWORDS),
     }
 
 
@@ -54,7 +53,7 @@ async def debug():
 async def predict_local(file: UploadFile = File(...)):
     try:
         content = await file.read()
-        logger.info(f"Received file: {file.filename}, size: {len(content)} bytes")
+        logger.info(f"Received file: {file.filename}")
     except Exception as e:
         logger.error(f"Failed to read file: {e}")
         raise HTTPException(400, f"Failed to read file: {e}")
@@ -65,13 +64,15 @@ async def predict_local(file: UploadFile = File(...)):
         logger.error(f"Failed to parse CSV: {e}")
         raise HTTPException(400, f"Could not parse CSV: {e}")
 
+    # Normalize column names to lowercase - THIS IS CRITICAL!
+    df.columns = df.columns.str.lower().str.strip()
     logger.info(f"Parsed {len(df)} rows, columns: {list(df.columns)}")
 
     required_cols = ["incident_task_desc", "location_nme"]
     missing = [c for c in required_cols if c not in df.columns]
     if missing:
-        logger.error(f"Missing columns: {missing}")
-        raise HTTPException(400, f"Missing required columns: {missing}")
+        logger.error(f"Missing required columns: {missing}. Got: {list(df.columns)}")
+        raise HTTPException(400, f"Missing required columns: {missing}. Need: {required_cols}")
 
     try:
         results = run_local_inference(df)
@@ -90,6 +91,8 @@ async def predict_local(file: UploadFile = File(...)):
 
 
 def run_local_inference(df):
+    """Run the full pipeline locally using keyword classification and heuristic scoring."""
+    # 1. Classify themes
     def classify_row(text):
         if not isinstance(text, str):
             return []
@@ -101,6 +104,7 @@ def run_local_inference(df):
 
     df["_themes"] = df["incident_task_desc"].apply(classify_row)
 
+    # 2. Aggregate by site
     sites = {}
     for _, row in df.iterrows():
         loc = row.get("location_nme", "Unknown")
@@ -129,7 +133,7 @@ def run_local_inference(df):
     for name, s in sites.items():
         count = len([r for r in df.itertuples() if r.location_nme == name])
         themes_covered = len(s["themes"])
-        blind_spots = 21 - themes_covered
+        blind_spots = len(THEMES) - themes_covered
         blind_spot_names = [t for t in THEMES if t not in s["themes"]]
         stopwork_rate = s["stopwork_count"] / max(count, 1)
         sorted_dates = sorted(s["dates"], reverse=True)
@@ -140,7 +144,7 @@ def run_local_inference(df):
             score += 0.12
         elif days_since > 30:
             score += 0.06
-        score += (blind_spots / 21) * 0.08
+        score += (blind_spots / len(THEMES)) * 0.08
         if count <= 2:
             score += 0.06
         elif count <= 5:
@@ -168,7 +172,7 @@ def run_local_inference(df):
         if days_since > 30:
             explanations.append({"text": f"No concerns in {days_since} days", "risk": True})
         if blind_spots > 10:
-            explanations.append({"text": f"{blind_spots} of 21 themes uncovered", "risk": True})
+            explanations.append({"text": f"{blind_spots} of {len(THEMES)} themes uncovered", "risk": True})
         if count < 3:
             explanations.append({"text": f"Only {count} concerns - very low", "risk": True})
         if stopwork_rate == 0 and count > 0:
